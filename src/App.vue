@@ -42,6 +42,24 @@
             </div>
           </div>
           
+          <!-- 提醒通知 -->
+          <div v-if="urgentTodos.length > 0 && !reminderDismissed" class="reminder-notification" :class="getReminderClass()" style="margin-bottom: 16px">
+            <a-alert
+              :message="getReminderMessage()"
+              type="warning"
+              :show-icon="true"
+              @close="dismissReminder"
+            >
+              <template #description>
+                <div style="margin-top: 8px">
+                  <div v-for="todo in urgentTodos" :key="todo.id" style="margin-bottom: 4px">
+                    • {{ todo.title }} - {{ getDueDateStatusText(todo.dueDate) }}
+                  </div>
+                </div>
+              </template>
+            </a-alert>
+          </div>
+
           <!-- 批量操作栏 -->
           <div v-if="selectedTodos.length > 0" style="margin-bottom: 16px">
             <a-space>
@@ -96,6 +114,7 @@
       <a-radio-group v-model:value="sortType">
         <a-radio value="priority">按优先级排序</a-radio>
         <a-radio value="created">按创建时间排序</a-radio>
+        <a-radio value="dueDate">按截止日期排序</a-radio>
         <a-radio value="title">按标题排序</a-radio>
       </a-radio-group>
       <div style="margin-top: 16px">
@@ -109,6 +128,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import { FilterOutlined } from '@ant-design/icons-vue'
+import dayjs from 'dayjs'
 import Sidebar from './components/Sidebar.vue'
 import TodoItem from './components/TodoItem.vue'
 import TodoForm from './components/TodoForm.vue'
@@ -129,6 +149,7 @@ const selectedTodos = ref([])
 const showSortModal = ref(false)
 const sortType = ref('created')
 const sortDesc = ref(false)
+const reminderDismissed = ref(false)
 
 onMounted(() => {
   todos.value = storage.getTodos()
@@ -171,6 +192,11 @@ const filteredTodos = computed(() => {
       case 'created':
         comparison = new Date(a.createdAt) - new Date(b.createdAt)
         break
+      case 'dueDate':
+        const aDue = a.dueDate ? new Date(a.dueDate) : new Date('9999-12-31')
+        const bDue = b.dueDate ? new Date(b.dueDate) : new Date('9999-12-31')
+        comparison = aDue - bDue
+        break
       case 'title':
         comparison = a.title.localeCompare(b.title)
         break
@@ -180,6 +206,63 @@ const filteredTodos = computed(() => {
 
   return result
 })
+
+const urgentTodos = computed(() => {
+  const now = dayjs()
+  return todos.value.filter(todo => {
+    if (todo.completed || !todo.dueDate) return false
+    const due = dayjs(todo.dueDate)
+    const diffDays = due.diff(now, 'day')
+    return diffDays <= 3
+  }).sort((a, b) => {
+    return dayjs(a.dueDate).diff(dayjs(b.dueDate))
+  })
+})
+
+const getReminderClass = () => {
+  const hasOverdue = urgentTodos.value.some(todo => {
+    const diffDays = dayjs(todo.dueDate).diff(dayjs(), 'day')
+    return diffDays < 0
+  })
+  if (hasOverdue) return 'overdue'
+  return 'urgent'
+}
+
+const getReminderMessage = () => {
+  const overdueCount = urgentTodos.value.filter(todo => {
+    const diffDays = dayjs(todo.dueDate).diff(dayjs(), 'day')
+    return diffDays < 0
+  }).length
+  
+  if (overdueCount > 0) {
+    return `⚠️ 有 ${overdueCount} 个待办事项已过期，${urgentTodos.value.length - overdueCount} 个即将到期`
+  }
+  return `⏰ 有 ${urgentTodos.value.length} 个待办事项即将到期（3天内）`
+}
+
+const getDueDateStatusText = (dueDate) => {
+  if (!dueDate) return ''
+  const now = dayjs()
+  const due = dayjs(dueDate)
+  const diffDays = due.diff(now, 'day')
+  
+  if (diffDays < 0) {
+    return `已过期 ${Math.abs(diffDays)} 天`
+  } else if (diffDays === 0) {
+    return '今天到期'
+  } else if (diffDays === 1) {
+    return '明天到期'
+  } else {
+    return `${diffDays} 天后到期`
+  }
+}
+
+const dismissReminder = () => {
+  reminderDismissed.value = true
+  setTimeout(() => {
+    reminderDismissed.value = false
+  }, 5000)
+}
 
 const handleCategoryChange = (category) => {
   activeCategory.value = category

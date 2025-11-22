@@ -46,6 +46,17 @@
         </div>
       </a-form-item>
 
+      <a-form-item label="截止日期" class="form-item">
+        <a-date-picker
+          v-model:value="formData.dueDate"
+          placeholder="请选择截止日期（可选）"
+          style="width: 100%"
+          :show-time="false"
+          format="YYYY-MM-DD"
+          value-format="YYYY-MM-DD"
+        />
+      </a-form-item>
+
       <a-form-item>
         <a-button 
           type="primary" 
@@ -71,6 +82,7 @@
 
 <script setup>
 import { ref, watch, computed } from 'vue'
+import dayjs from 'dayjs'
 
 const props = defineProps({
   todo: {
@@ -89,7 +101,8 @@ const formData = ref({
   title: '',
   description: '',
   category: 'life',
-  priority: 1
+  priority: 1,
+  dueDate: null
 })
 
 const priorityMarks = {
@@ -108,14 +121,16 @@ watch(() => props.todo, (newTodo) => {
       title: newTodo.title || '',
       description: newTodo.description || '',
       category: newTodo.category || 'life',
-      priority: newTodo.priority || 1
+      priority: newTodo.priority || 1,
+      dueDate: newTodo.dueDate || null
     }
   } else {
     formData.value = {
       title: '',
       description: '',
       category: 'life',
-      priority: 1
+      priority: 1,
+      dueDate: null
     }
   }
 }, { immediate: true })
@@ -136,7 +151,8 @@ const handleSubmit = () => {
       title: '',
       description: '',
       category: 'life',
-      priority: 1
+      priority: 1,
+      dueDate: null
     }
   }
 }

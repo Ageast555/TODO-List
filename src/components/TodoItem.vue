@@ -1,5 +1,5 @@
 <template>
-  <div class="todo-item" :class="{ completed: todo.completed, selected: selected }" @click="handleItemClick">
+  <div class="todo-item" :class="{ completed: todo.completed, selected: selected, 'due-urgent': isDueUrgent(), 'due-overdue': isDueOverdue() }" @click="handleItemClick">
     <a-checkbox
       :checked="todo.completed"
       @change.stop="handleToggle"
@@ -25,6 +25,12 @@
         </span>
         <span v-if="todo.completedAt">
           | 完成于 {{ formatDate(todo.completedAt) }}
+        </span>
+        <span v-if="todo.dueDate" :class="getDueDateClass(todo.dueDate, todo.completed)">
+          | 截止日期：{{ formatDateOnly(todo.dueDate) }}
+          <a-tag v-if="!todo.completed" :color="getDueDateTagColor(todo.dueDate)" size="small" style="margin-left: 8px">
+            {{ getDueDateStatus(todo.dueDate) }}
+          </a-tag>
         </span>
       </div>
     </div>
@@ -93,6 +99,78 @@ const handleItemClick = (e) => {
 
 const formatDate = (dateString) => {
   return dayjs(dateString).format('YYYY-MM-DD HH:mm')
+}
+
+const formatDateOnly = (dateString) => {
+  return dayjs(dateString).format('YYYY-MM-DD')
+}
+
+const getDueDateStatus = (dueDate) => {
+  if (!dueDate) return ''
+  const now = dayjs()
+  const due = dayjs(dueDate)
+  const diffDays = due.diff(now, 'day')
+  
+  if (diffDays < 0) {
+    return `已过期 ${Math.abs(diffDays)} 天`
+  } else if (diffDays === 0) {
+    return '今天到期'
+  } else if (diffDays === 1) {
+    return '明天到期'
+  } else if (diffDays <= 3) {
+    return `${diffDays} 天后到期`
+  } else {
+    return ''
+  }
+}
+
+const getDueDateTagColor = (dueDate) => {
+  if (!dueDate) return 'default'
+  const now = dayjs()
+  const due = dayjs(dueDate)
+  const diffDays = due.diff(now, 'day')
+  
+  if (diffDays < 0) {
+    return 'red'
+  } else if (diffDays === 0) {
+    return 'red'
+  } else if (diffDays <= 1) {
+    return 'orange'
+  } else if (diffDays <= 3) {
+    return 'orange'
+  } else {
+    return 'default'
+  }
+}
+
+const getDueDateClass = (dueDate, completed) => {
+  if (completed) return ''
+  if (!dueDate) return ''
+  const now = dayjs()
+  const due = dayjs(dueDate)
+  const diffDays = due.diff(now, 'day')
+  
+  if (diffDays < 0) {
+    return 'due-date-overdue'
+  } else if (diffDays <= 3) {
+    return 'due-date-urgent'
+  }
+  return ''
+}
+
+const isDueUrgent = () => {
+  if (props.todo.completed || !props.todo.dueDate) return false
+  const now = dayjs()
+  const due = dayjs(props.todo.dueDate)
+  const diffDays = due.diff(now, 'day')
+  return diffDays >= 0 && diffDays <= 3
+}
+
+const isDueOverdue = () => {
+  if (props.todo.completed || !props.todo.dueDate) return false
+  const now = dayjs()
+  const due = dayjs(props.todo.dueDate)
+  return due.diff(now, 'day') < 0
 }
 
 const getCategoryName = (category) => {

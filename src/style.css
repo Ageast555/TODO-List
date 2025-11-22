@@ -125,6 +125,15 @@ body {
   box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
 }
 
+.todo-item.due-urgent {
+  border-left: 4px solid #fa8c16;
+}
+
+.todo-item.due-overdue {
+  border-left: 4px solid #ff4d4f;
+  background-color: #fff1f0;
+}
+
 .todo-item-content {
   flex: 1;
 }
@@ -213,5 +222,33 @@ body {
 
 .empty-state-text {
   font-size: 14px;
+}
+
+.due-date-overdue {
+  color: #ff4d4f;
+  font-weight: 500;
+}
+
+.due-date-urgent {
+  color: #fa8c16;
+  font-weight: 500;
+}
+
+.reminder-notification {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background-color: #fff7e6;
+  border: 1px solid #ffd591;
+  border-radius: 4px;
+}
+
+.reminder-notification.urgent {
+  background-color: #fff1f0;
+  border-color: #ffccc7;
+}
+
+.reminder-notification.overdue {
+  background-color: #fff0f0;
+  border-color: #ffccc7;
 }
 
