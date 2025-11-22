@@ -70,7 +70,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch, computed } from 'vue'
 
 const props = defineProps({
   todo: {
@@ -82,6 +82,8 @@ const props = defineProps({
     default: () => []
   }
 })
+
+const emit = defineEmits(['submit', 'cancel'])
 
 const formData = ref({
   title: '',
@@ -96,10 +98,51 @@ const priorityMarks = {
   3: '高'
 }
 
-const isEditing = ref(false)
+const isEditing = computed(() => {
+  return props.todo && props.todo.id
+})
 
+watch(() => props.todo, (newTodo) => {
+  if (newTodo) {
+    formData.value = {
+      title: newTodo.title || '',
+      description: newTodo.description || '',
+      category: newTodo.category || 'life',
+      priority: newTodo.priority || 1
+    }
+  } else {
+    formData.value = {
+      title: '',
+      description: '',
+      category: 'life',
+      priority: 1
+    }
+  }
+}, { immediate: true })
 
-const handleSubmit = () => {}
-const handleCancel = () => {}
+const handleSubmit = () => {
+  if (!formData.value.title.trim()) {
+    return
+  }
+  
+  emit('submit', {
+    ...formData.value,
+    title: formData.value.title.trim(),
+    description: formData.value.description.trim()
+  })
+  
+  if (!isEditing.value) {
+    formData.value = {
+      title: '',
+      description: '',
+      category: 'life',
+      priority: 1
+    }
+  }
+}
+
+const handleCancel = () => {
+  emit('cancel')
+}
 </script>
 

@@ -67,12 +67,29 @@ const props = defineProps({
   }
 })
 
+const emit = defineEmits(['toggle', 'delete', 'edit', 'select'])
 
-const handleToggle = () => {}
-const handleDelete = () => {}
-const handleEdit = () => {}
-const handleSelect = () => {}
-const handleItemClick = () => {}
+const handleToggle = () => {
+  emit('toggle', props.todo.id)
+}
+
+const handleDelete = () => {
+  emit('delete', props.todo.id)
+}
+
+const handleEdit = () => {
+  emit('edit', props.todo)
+}
+
+const handleSelect = () => {
+  emit('select', props.todo.id)
+}
+
+const handleItemClick = (e) => {
+  if (!e.target.closest('button') && !e.target.closest('.ant-checkbox')) {
+    handleSelect()
+  }
+}
 
 const formatDate = (dateString) => {
   return dayjs(dateString).format('YYYY-MM-DD HH:mm')

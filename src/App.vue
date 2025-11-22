@@ -35,12 +35,39 @@
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px">
             <div class="todo-list-title">待办事项</div>
             <div style="font-size: 14px; color: #999">
-              共 0 项
+              共 {{ filteredTodos.length }} 项
+              <span v-if="activeCategory !== 'all'">
+                （当前分类：{{ categoryTodosCount }} 项）
+              </span>
             </div>
           </div>
           
+          <!-- 批量操作栏 -->
+          <div v-if="selectedTodos.length > 0" style="margin-bottom: 16px">
+            <a-space>
+              <span>已选择 {{ selectedTodos.length }} 项</span>
+              <a-button size="small" @click="batchComplete">批量完成</a-button>
+              <a-button size="small" danger @click="batchDelete">批量删除</a-button>
+              <a-button size="small" @click="clearSelection">取消选择</a-button>
+            </a-space>
+          </div>
+
+          <!-- 待办事项列表 -->
+          <div v-if="filteredTodos.length > 0">
+            <TodoItem
+              v-for="todo in filteredTodos"
+              :key="todo.id"
+              :todo="todo"
+              :selected="selectedTodos.includes(todo.id)"
+              @toggle="handleToggle"
+              @delete="handleDelete"
+              @edit="handleEdit"
+              @select="handleSelect"
+            />
+          </div>
+          
           <!-- 空状态 -->
-          <div class="empty-state">
+          <div v-else class="empty-state">
             <div class="empty-state-icon">📝</div>
             <div class="empty-state-text">暂无待办事项</div>
           </div>
@@ -79,10 +106,13 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { message } from 'ant-design-vue'
 import { FilterOutlined } from '@ant-design/icons-vue'
 import Sidebar from './components/Sidebar.vue'
+import TodoItem from './components/TodoItem.vue'
 import TodoForm from './components/TodoForm.vue'
+import { storage } from './utils/storage'
 
 const categories = [
   { id: 'all', name: '全部', icon: 'HomeOutlined' },
@@ -100,23 +130,148 @@ const showSortModal = ref(false)
 const sortType = ref('created')
 const sortDesc = ref(false)
 
+onMounted(() => {
+  todos.value = storage.getTodos()
+})
 
-const filteredTodos = ref([])
-const categoryTodosCount = ref(0)
+const saveTodos = () => {
+  storage.saveTodos(todos.value)
+}
 
-const handleCategoryChange = () => {}
-const handleSearch = () => {}
-const handleToggle = () => {}
-const handleDelete = () => {}
-const handleEdit = () => {}
-const handleSubmit = () => {}
-const handleCancelEdit = () => {}
-const handleSelect = () => {}
-const batchComplete = () => {}
-const batchDelete = () => {}
-const clearSelection = () => {}
+watch(todos, () => {
+  saveTodos()
+}, { deep: true })
+
+const categoryTodosCount = computed(() => {
+  if (activeCategory.value === 'all') return todos.value.length
+  return todos.value.filter(todo => todo.category === activeCategory.value).length
+})
+
+const filteredTodos = computed(() => {
+  let result = [...todos.value]
+
+  if (activeCategory.value !== 'all') {
+    result = result.filter(todo => todo.category === activeCategory.value)
+  }
+
+  if (searchText.value) {
+    const keyword = searchText.value.toLowerCase()
+    result = result.filter(todo => 
+      todo.title.toLowerCase().includes(keyword) ||
+      (todo.description && todo.description.toLowerCase().includes(keyword))
+    )
+  }
+
+  result.sort((a, b) => {
+    let comparison = 0
+    switch (sortType.value) {
+      case 'priority':
+        comparison = (b.priority || 0) - (a.priority || 0)
+        break
+      case 'created':
+        comparison = new Date(a.createdAt) - new Date(b.createdAt)
+        break
+      case 'title':
+        comparison = a.title.localeCompare(b.title)
+        break
+    }
+    return sortDesc.value ? -comparison : comparison
+  })
+
+  return result
+})
+
+const handleCategoryChange = (category) => {
+  activeCategory.value = category
+  selectedTodos.value = []
+}
+
+const handleSearch = () => {
+}
+
+const handleToggle = (id) => {
+  const todo = todos.value.find(t => t.id === id)
+  if (todo) {
+    todo.completed = !todo.completed
+    todo.completedAt = todo.completed ? new Date().toISOString() : null
+    message.success(todo.completed ? '已标记为完成' : '已标记为未完成')
+  }
+}
+
+const handleDelete = (id) => {
+  todos.value = todos.value.filter(t => t.id !== id)
+  message.success('删除成功')
+  if (editingTodo.value && editingTodo.value.id === id) {
+    editingTodo.value = null
+  }
+}
+
+const handleEdit = (todo) => {
+  editingTodo.value = { ...todo }
+}
+
+const handleSubmit = (todoData) => {
+  if (editingTodo.value && editingTodo.value.id) {
+    const index = todos.value.findIndex(t => t.id === editingTodo.value.id)
+    if (index !== -1) {
+      todos.value[index] = {
+        ...todos.value[index],
+        ...todoData,
+        updatedAt: new Date().toISOString()
+      }
+      message.success('更新成功')
+    }
+  } else {
+    const newTodo = {
+      id: Date.now().toString(),
+      ...todoData,
+      completed: false,
+      createdAt: new Date().toISOString()
+    }
+    todos.value.unshift(newTodo)
+    message.success('添加成功')
+  }
+  editingTodo.value = null
+}
+
+const handleCancelEdit = () => {
+  editingTodo.value = null
+}
+
+const handleSelect = (id) => {
+  const index = selectedTodos.value.indexOf(id)
+  if (index > -1) {
+    selectedTodos.value.splice(index, 1)
+  } else {
+    selectedTodos.value.push(id)
+  }
+}
+
+const batchComplete = () => {
+  selectedTodos.value.forEach(id => {
+    const todo = todos.value.find(t => t.id === id)
+    if (todo && !todo.completed) {
+      todo.completed = true
+      todo.completedAt = new Date().toISOString()
+    }
+  })
+  message.success(`已批量完成 ${selectedTodos.value.length} 项`)
+  selectedTodos.value = []
+}
+
+const batchDelete = () => {
+  todos.value = todos.value.filter(t => !selectedTodos.value.includes(t.id))
+  message.success(`已批量删除 ${selectedTodos.value.length} 项`)
+  selectedTodos.value = []
+}
+
+const clearSelection = () => {
+  selectedTodos.value = []
+}
+
 const applySort = () => {
   showSortModal.value = false
+  message.success('排序已应用')
 }
 </script>
 
